@@ -510,7 +510,7 @@ install_distribution_specific()
 
 		;;
 
-	stretch|buster)
+	stretch|buster|sid)
 
 			# remove doubled uname from motd
 			[[ -f "${SDCARD}"/etc/update-motd.d/10-uname ]] && rm "${SDCARD}"/etc/update-motd.d/10-uname
@@ -533,13 +533,20 @@ install_distribution_specific()
 			sed '/security/ d' -i "${SDCARD}"/etc/apt/sources.list
 
 		;;
-	bionic|groovy|focal)
+	bionic|groovy|focal|hirsute)
 
 			# by using default lz4 initrd compression leads to corruption, go back to proven method
 			sed -i "s/^COMPRESS=.*/COMPRESS=gzip/" "${SDCARD}"/etc/initramfs-tools/initramfs.conf
 
-			# remove doubled uname from motd
-			[[ -f "${SDCARD}"/etc/update-motd.d/10-uname ]] && rm "${SDCARD}"/etc/update-motd.d/10-uname
+			# cleanup motd services and related files
+			chroot "${SDCARD}" /bin/bash -c "systemctl disable  motd-news.service >/dev/null 2>&1"
+			chroot "${SDCARD}" /bin/bash -c "systemctl disable  motd-news.timer >/dev/null 2>&1"
+
+			rm -f "${SDCARD}"/etc/update-motd.d/10-uname
+			rm -f "${SDCARD}"/etc/update-motd.d/10-help-text
+			rm -f "${SDCARD}"/etc/update-motd.d/50-motd-news
+			rm -f "${SDCARD}"/etc/update-motd.d/80-esm
+			rm -f "${SDCARD}"/etc/update-motd.d/80-livepatch
 
 			# remove motd news from motd.ubuntu.com
 			[[ -f "${SDCARD}"/etc/default/motd-news ]] && sed -i "s/^ENABLED=.*/ENABLED=0/" "${SDCARD}"/etc/default/motd-news
