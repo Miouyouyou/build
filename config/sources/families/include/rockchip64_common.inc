@@ -91,9 +91,8 @@ case $BRANCH in
 
 	dev)
 
-		MAINLINE_KERNEL_SOURCE='https://github.com/torvalds/linux.git'
 		KERNELPATCHDIR='rockchip64-'$BRANCH
-		KERNELBRANCH="tag:v5.10-rc7"
+		KERNELBRANCH="branch:linux-5.10.y"
 		LINUXFAMILY=rockchip64
 		LINUXCONFIG='linux-rockchip64-'$BRANCH
 
@@ -175,9 +174,9 @@ uboot_custom_postprocess()
 {
 	if [ "$(uname -m)" = "aarch64" ]; then
 		if [ "$(lsb_release -sc)" = "focal" ]; then
-			PKG_PREFIX="qemu-x86_64-static "
+			PKG_PREFIX="qemu-x86_64-static -L /usr/x86_64-linux-gnu "
 		else
-			PKG_PREFIX="qemu-x86_64 "
+			PKG_PREFIX="qemu-x86_64 -L /usr/x86_64-linux-gnu "
 		fi
 	else
 		PKG_PREFIX=""

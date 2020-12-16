@@ -114,7 +114,7 @@ show_menu() {
 	provided_title=$1
 	provided_backtitle=$2
 	provided_menuname=$3
-	# Myy : I don't know why there's a TTY_Y - 8... 
+	# Myy : I don't know why there's a TTY_Y - 8...
 	#echo "Provided title : $provided_title"
 	#echo "Provided backtitle : $provided_backtitle"
 	#echo "Provided menuname : $provided_menuname"
@@ -156,8 +156,9 @@ desktop_element_available_for_arch() {
 }
 
 desktop_element_supported() {
+
 	local desktop_element_path="${1}"
-	
+
 	local support_level_filepath="${desktop_element_path}/support"
 	if [[ -f "${support_level_filepath}" ]]; then
 		local support_level="$(cat "${support_level_filepath}")"
@@ -174,21 +175,20 @@ desktop_element_supported() {
 	fi
 
 	return 0
-}
 
-# Expected environment variables :
-# - options
-# - ARCH
-desktop_environments_prepare_menu() {
-	for desktop_env_dir in "${DESKTOP_CONFIGS_DIR}/"*; do
-		local desktop_env_name=$(basename ${desktop_env_dir})
-		local expert_infos=""
-		[[ "${EXPERT}" == "yes" ]] && expert_infos="[$(cat "${desktop_env_dir}/support")]"
-		desktop_element_supported "${desktop_env_dir}" "${ARCH}" && options+=("${desktop_env_name}" "${desktop_env_name^} desktop environment ${expert_infos}")
-	done
 }
 
 if [[ $BUILD_DESKTOP == "yes" && -z $DESKTOP_ENVIRONMENT ]]; then
+
+	desktop_environments_prepare_menu() {
+		for desktop_env_dir in "${DESKTOP_CONFIGS_DIR}/"*; do
+			local desktop_env_name=$(basename ${desktop_env_dir})
+			local expert_infos=""
+			[[ "${EXPERT}" == "yes" ]] && expert_infos="[$(cat "${desktop_env_dir}/support")]"
+			desktop_element_supported "${desktop_env_dir}" "${ARCH}" && options+=("${desktop_env_name}" "${desktop_env_name^} desktop environment ${expert_infos}")
+		done
+	}
+
 	options=()
 	desktop_environments_prepare_menu
 
@@ -203,32 +203,40 @@ if [[ $BUILD_DESKTOP == "yes" && -z $DESKTOP_ENVIRONMENT ]]; then
 	if [[ -z "${DESKTOP_ENVIRONMENT}" ]]; then
 		exit_with_error "No desktop environment selected..."
 	fi
+
 fi
 
-desktop_environment_check_if_valid() {
-	local error_msg=""
-	desktop_element_supported "${DESKTOP_ENVIRONMENT_DIRPATH}" "${ARCH}"
-	local retval=$?
-	
-	if [[ ${retval} == 0 ]]; then
-		return
-	elif [[ ${retval} == 64 ]]; then
-		error_msg+="Either the desktop environment ${DESKTOP_ENVIRONMENT} does not exist "
-		error_msg+="or the file ${DESKTOP_ENVIRONMENT_DIRPATH}/support is missing"
-	elif [[ ${retval} == 65 ]]; then
-		error_msg+="Only experts can build an image with the desktop environment \"${DESKTOP_ENVIRONMENT}\", since the Armbian team won't offer any support for it (EXPERT=${EXPERT})"
-	elif [[ ${retval} == 66 ]]; then
-		error_msg+="The desktop environment \"${DESKTOP_ENVIRONMENT}\" has no packages for your targeted board architecture (BOARD=${BOARD} ARCH=${ARCH}). "
-		error_msg+="The supported boards architectures are : "
-		error_msg+="$(cat "${DESKTOP_ENVIRONMENT_DIRPATH}/only_for")"
-	fi
+if [[ $BUILD_DESKTOP == "yes" ]]; then
+	# Expected environment variables :
+	# - options
+	# - ARCH
 
-	exit_with_error "${error_msg}"
-}
+	desktop_environment_check_if_valid() {
 
-DESKTOP_ENVIRONMENT_DIRPATH="${DESKTOP_CONFIGS_DIR}/${DESKTOP_ENVIRONMENT}"
+		local error_msg=""
+		desktop_element_supported "${DESKTOP_ENVIRONMENT_DIRPATH}" "${ARCH}"
+		local retval=$?
 
-desktop_environment_check_if_valid
+		if [[ ${retval} == 0 ]]; then
+			return
+		elif [[ ${retval} == 64 ]]; then
+			error_msg+="Either the desktop environment ${DESKTOP_ENVIRONMENT} does not exist "
+			error_msg+="or the file ${DESKTOP_ENVIRONMENT_DIRPATH}/support is missing"
+		elif [[ ${retval} == 65 ]]; then
+			error_msg+="Only experts can build an image with the desktop environment \"${DESKTOP_ENVIRONMENT}\", since the Armbian team won't offer any support for it (EXPERT=${EXPERT})"
+		elif [[ ${retval} == 66 ]]; then
+			error_msg+="The desktop environment \"${DESKTOP_ENVIRONMENT}\" has no packages for your targeted board architecture (BOARD=${BOARD} ARCH=${ARCH}). "
+			error_msg+="The supported boards architectures are : "
+			error_msg+="$(cat "${DESKTOP_ENVIRONMENT_DIRPATH}/only_for")"
+		fi
+
+		exit_with_error "${error_msg}"
+	}
+
+	DESKTOP_ENVIRONMENT_DIRPATH="${DESKTOP_CONFIGS_DIR}/${DESKTOP_ENVIRONMENT}"
+
+	desktop_environment_check_if_valid
+fi
 
 if [[ $BUILD_DESKTOP == "yes" && -z $DESKTOP_ENVIRONMENT_CONFIG_NAME ]]; then
 	# FIXME Check for empty folders, just in case the current maintainer
@@ -253,8 +261,10 @@ if [[ $BUILD_DESKTOP == "yes" && -z $DESKTOP_ENVIRONMENT_CONFIG_NAME ]]; then
 	fi
 fi
 
-DESKTOP_ENVIRONMENT_PACKAGE_LIST_DIRPATH="${DESKTOP_ENVIRONMENT_DIRPATH}/${DESKTOP_ENVIRONMENT_CONFIG_NAME}"
-DESKTOP_ENVIRONMENT_PACKAGE_LIST_FILEPATH="${DESKTOP_ENVIRONMENT_PACKAGE_LIST_DIRPATH}/packages"
+if [[ $BUILD_DESKTOP == "yes" ]]; then
+	DESKTOP_ENVIRONMENT_PACKAGE_LIST_DIRPATH="${DESKTOP_ENVIRONMENT_DIRPATH}/${DESKTOP_ENVIRONMENT_CONFIG_NAME}"
+	DESKTOP_ENVIRONMENT_PACKAGE_LIST_FILEPATH="${DESKTOP_ENVIRONMENT_PACKAGE_LIST_DIRPATH}/packages"
+fi
 
 # "-z ${VAR+x}" allows to check for unset variable
 # Technically, someone might want to build a desktop with no additional
@@ -347,9 +357,10 @@ aggregate_all() {
 }
 
 # set unique mounting directory
-SDCARD="${SRC}/.tmp/rootfs-${BRANCH}-${BOARD}-${RELEASE}-${DESKTOP_ENVIRONMENT:+"$DESKTOP_ENVIRONMENT-"}${BUILD_DESKTOP}-${SELECTED_CONFIGURATION}"
-MOUNT="${SRC}/.tmp/mount-${BRANCH}-${BOARD}-${RELEASE}-${DESKTOP_ENVIRONMENT:+"$DESKTOP_ENVIRONMENT-"}${BUILD_DESKTOP}-${SELECTED_CONFIGURATION}"
-DESTIMG="${SRC}/.tmp/image-${BRANCH}-${BOARD}-${RELEASE}-${DESKTOP_ENVIRONMENT:+"$DESKTOP_ENVIRONMENT-"}${BUILD_DESKTOP}-${SELECTED_CONFIGURATION}"
+MOUNT_UUID=$(echo "${BRANCH} ${BOARD} ${RELEASE} ${DESKTOP_APPGROUPS_SELECTED} ${DESKTOP_ENVIRONMENT} ${BUILD_DESKTOP} ${BUILD_MINIMAL}" | md5sum | cut -d" " -f1)
+SDCARD="${SRC}/.tmp/rootfs-${MOUNT_UUID}"
+MOUNT="${SRC}/.tmp/mount-${MOUNT_UUID}"
+DESTIMG="${SRC}/.tmp/image-${MOUNT_UUID}"
 
 # dropbear needs to be configured differently
 [[ $CRYPTROOT_ENABLE == yes && $RELEASE == xenial ]] && exit_with_error "Encrypted rootfs is not supported in Xenial"
@@ -427,7 +438,7 @@ aggregate_all_cli() {
 		potential_paths+=" ${CLI_CONFIG_PATH}/main/config_${SELECTED_CONFIGURATION}/${looked_up_subpath}"
 		potential_paths+=" ${CLI_CONFIG_PATH}/main/custom/boards/${BOARD}/config_${SELECTED_CONFIGURATION}/${looked_up_subpath}"
 	fi
-	
+
 	aggregate_content
 }
 
@@ -474,14 +485,16 @@ unset aggregated_content
 # Myy : Sources packages from file here
 
 # Myy : FIXME Rename aggregate_all to aggregate_all_desktop
-aggregated_content=""
-aggregate_all "packages" " "
+if [[ $BUILD_DESKTOP == "yes" ]]; then
+	aggregated_content=""
+	aggregate_all "packages" " "
 
-PACKAGE_LIST_DESKTOP+="${aggregated_content}"
+	PACKAGE_LIST_DESKTOP+="${aggregated_content}"
 
-unset aggregated_content
+	unset aggregated_content
 
-echo "Groups selected ${DESKTOP_APPGROUPS_SELECTED} -> PACKAGES : ${PACKAGE_LIST_DESKTOP}"
+	echo "Groups selected ${DESKTOP_APPGROUPS_SELECTED} -> PACKAGES : ${PACKAGE_LIST_DESKTOP}"
+fi
 
 # Myy : Clean the Debootstrap lists. The packages list will be cleaned when necessary.
 # This horrendous cleanup syntax is used to remove trailing and leading spaces.
@@ -587,14 +600,19 @@ if [[ -n $PACKAGE_LIST_RM ]]; then
 	# the previous one after consuming the spaces.
 	PACKAGE_LIST=$(sed -r "s/\W($(tr ' ' '|' <<< ${PACKAGE_LIST_RM}))\W/ /g" <<< " ${PACKAGE_LIST} ")
 	PACKAGE_MAIN_LIST=$(sed -r "s/\W($(tr ' ' '|' <<< ${PACKAGE_LIST_RM}))\W/ /g" <<< " ${PACKAGE_MAIN_LIST} ")
-	PACKAGE_LIST_DESKTOP=$(sed -r "s/\W($(tr ' ' '|' <<< ${PACKAGE_LIST_RM}))\W/ /g" <<< " ${PACKAGE_LIST_DESKTOP} ")
+	if [[ $BUILD_DESKTOP == "yes" ]]; then
+		PACKAGE_LIST_DESKTOP=$(sed -r "s/\W($(tr ' ' '|' <<< ${PACKAGE_LIST_RM}))\W/ /g" <<< " ${PACKAGE_LIST_DESKTOP} ")
+	fi
 fi
 
 # Removing double spaces
 # Do not quote the variables. This would defeat the trick.
 PACKAGE_LIST="$(echo ${PACKAGE_LIST})"
 PACKAGE_MAIN_LIST="$(echo ${PACKAGE_MAIN_LIST})"
-PACKAGE_LIST_DESKTOP="$(echo ${PACKAGE_LIST_DESKTOP})"
+
+if [[ $BUILD_DESKTOP == "yes" ]]; then
+	PACKAGE_LIST_DESKTOP="$(echo ${PACKAGE_LIST_DESKTOP})"
+fi
 
 display_alert "After removal of packages.remove packages"
 display_alert "PACKAGE_MAIN_LIST : \"${PACKAGE_MAIN_LIST}\""
